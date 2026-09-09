@@ -1,4 +1,3 @@
-```markdown
 # ⚡ FlowPilot AI — Smart Task Extraction & Google Calendar Sync
 
 **2-Week SCRUM Project | B.Tech CSE Portfolio | Feb 19 - Mar 4, 2026**
