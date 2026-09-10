@@ -66,9 +66,28 @@ except Exception as e:
 
 
 # =============================================================================
+# DATABASE (Day 2)
+# =============================================================================
+from contextlib import asynccontextmanager
+
+try:
+    from backend.db import init_db
+except ModuleNotFoundError:  # running from inside backend/
+    from db import init_db  # type: ignore
+
+
+@asynccontextmanager
+async def lifespan(app: "FastAPI"):
+    init_db()
+    print("[OK] Database tables ready")
+    yield
+
+
+# =============================================================================
 # FASTAPI APP
 # =============================================================================
 app = FastAPI(
+    lifespan=lifespan,
     title="FlowPilot AI",
     description="Smart task extraction with Google Calendar sync",
     version="3.0.0",
