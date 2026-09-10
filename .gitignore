@@ -77,3 +77,7 @@ frontend/.env.*.local
 .DS_Store
 Thumbs.db
 ehthumbs.db
+
+# Local dev database (SQLite fallback when DATABASE_URL is not set)
+backend/dev.db
+*.sqlite3
