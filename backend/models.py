@@ -23,6 +23,7 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    google_sub: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), default="")
     picture: Mapped[str] = mapped_column(String(1024), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
