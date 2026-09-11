@@ -6,10 +6,11 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -74,6 +75,16 @@ try:
     from backend.db import init_db
 except ModuleNotFoundError:  # running from inside backend/
     from db import init_db  # type: ignore
+try:
+    from backend.auth import create_access_token, decode_access_token, verify_google_id_token
+    from backend.db import SessionLocal
+    from backend.models import User
+except ModuleNotFoundError:  # running from inside backend/
+    from auth import create_access_token, decode_access_token, verify_google_id_token  # type: ignore
+    from db import SessionLocal  # type: ignore
+    from models import User  # type: ignore
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @asynccontextmanager
@@ -142,6 +153,16 @@ class ConfigResponse(BaseModel):
     google_client_id: str
     llm_available: bool
     debug: bool
+
+
+class GoogleAuthRequest(BaseModel):
+    id_token: str
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict
 
 
 # =============================================================================
@@ -458,6 +479,58 @@ def process_local(text: str) -> dict:
 # =============================================================================
 # API ENDPOINTS
 # =============================================================================
+@app.post("/api/auth/google", response_model=AuthResponse)
+async def google_auth(payload: GoogleAuthRequest):
+    claims = verify_google_id_token(payload.id_token)
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_sub == claims["sub"]).first()
+        if user is None:
+            user = db.query(User).filter(User.email == claims["email"]).first()
+        if user is None:
+            user = User(
+                email=claims["email"],
+                google_sub=claims["sub"],
+                name=claims.get("name", ""),
+                picture=claims.get("picture", ""),
+            )
+            db.add(user)
+        else:
+            user.google_sub = claims["sub"]
+            user.name = claims.get("name", user.name)
+            user.picture = claims.get("picture", user.picture)
+        db.commit()
+        db.refresh(user)
+        access_token = create_access_token(user_id=user.id, email=user.email)
+        return AuthResponse(
+            access_token=access_token,
+            user={"id": user.id, "email": user.email, "name": user.name, "picture": user.picture},
+        )
+    finally:
+        db.close()
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
+    claims = decode_access_token(credentials.credentials)
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == claims.get("sub")).first()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+    finally:
+        db.close()
+
+
+@app.get("/api/auth/me")
+async def auth_me(user: User = Depends(get_current_user)):
+    return {"id": user.id, "email": user.email, "name": user.name, "picture": user.picture}
+
+
 @app.get("/api/config", response_model=ConfigResponse)
 async def get_config():
     return ConfigResponse(
