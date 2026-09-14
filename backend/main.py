@@ -483,6 +483,8 @@ def process_local(text: str) -> dict:
 # =============================================================================
 
 
+
+
 @app.post("/api/auth/google", response_model=AuthResponse)
 async def google_auth(payload: GoogleAuthRequest):
     claims = verify_google_id_token(payload.id_token)
@@ -570,6 +572,56 @@ async def create_task(
         db.commit()
         db.refresh(task)
         return task
+    finally:
+        db.close()
+
+
+
+
+@app.patch("/api/tasks/{task_id}", response_model=TaskResponse)
+async def update_task(
+    task_id: str,
+    payload: TaskUpdate,
+    user: User = Depends(get_current_user),
+):
+    """Update a task only when it belongs to the authenticated user."""
+    db = SessionLocal()
+
+    try:
+        task = (
+            db.query(TaskRecord)
+            .filter(TaskRecord.id == task_id, TaskRecord.user_id == user.id)
+            .first()
+        )
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(task, field, value)
+
+        db.commit()
+        db.refresh(task)
+        return task
+    finally:
+        db.close()
+
+
+@app.delete("/api/tasks/{task_id}", status_code=204)
+async def delete_task(task_id: str, user: User = Depends(get_current_user)):
+    """Delete a task only when it belongs to the authenticated user."""
+    db = SessionLocal()
+
+    try:
+        task = (
+            db.query(TaskRecord)
+            .filter(TaskRecord.id == task_id, TaskRecord.user_id == user.id)
+            .first()
+        )
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        db.delete(task)
+        db.commit()
     finally:
         db.close()
 
