@@ -481,6 +481,8 @@ def process_local(text: str) -> dict:
 # =============================================================================
 # API ENDPOINTS
 # =============================================================================
+
+
 @app.post("/api/auth/google", response_model=AuthResponse)
 async def google_auth(payload: GoogleAuthRequest):
     claims = verify_google_id_token(payload.id_token)
@@ -549,6 +551,29 @@ async def list_tasks(user: User = Depends(get_current_user)):
         )
     finally:
         db.close()
+
+
+@app.post("/api/tasks", response_model=TaskResponse, status_code=201)
+async def create_task(
+    payload: TaskCreate,
+    user: User = Depends(get_current_user),
+):
+    """Create a task owned by the authenticated user."""
+    db = SessionLocal()
+
+    try:
+        task = TaskRecord(
+            user_id=user.id,
+            **payload.model_dump(),
+        )
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        return task
+    finally:
+        db.close()
+
+
 
 
 @app.get("/api/config", response_model=ConfigResponse)
