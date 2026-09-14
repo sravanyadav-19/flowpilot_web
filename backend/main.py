@@ -78,11 +78,13 @@ except ModuleNotFoundError:  # running from inside backend/
 try:
     from backend.auth import create_access_token, decode_access_token, verify_google_id_token
     from backend.db import SessionLocal
-    from backend.models import User
+    from backend.models import Task as TaskRecord, User
+    from backend.schemas import TaskCreate, TaskResponse, TaskUpdate
 except ModuleNotFoundError:  # running from inside backend/
     from auth import create_access_token, decode_access_token, verify_google_id_token  # type: ignore
     from db import SessionLocal  # type: ignore
-    from models import User  # type: ignore
+    from models import Task as TaskRecord, User  # type: ignore
+    from schemas import TaskCreate, TaskResponse, TaskUpdate  # type: ignore
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -529,6 +531,24 @@ def get_current_user(
 @app.get("/api/auth/me")
 async def auth_me(user: User = Depends(get_current_user)):
     return {"id": user.id, "email": user.email, "name": user.name, "picture": user.picture}
+
+
+
+
+@app.get("/api/tasks", response_model=list[TaskResponse])
+async def list_tasks(user: User = Depends(get_current_user)):
+    """Return only tasks owned by the authenticated user."""
+    db = SessionLocal()
+
+    try:
+        return (
+            db.query(TaskRecord)
+            .filter(TaskRecord.user_id == user.id)
+            .order_by(TaskRecord.created_at.desc())
+            .all()
+        )
+    finally:
+        db.close()
 
 
 @app.get("/api/config", response_model=ConfigResponse)
