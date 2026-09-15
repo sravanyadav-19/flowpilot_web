@@ -34,7 +34,7 @@ function App() {
   const [syncing, setSyncing] = useState(false);
   const [clarifyAnswers, setClarifyAnswers] = useState<Record<number, string>>({});
   const [savedTasks, setSavedTasks, clearSaved] = useLocalStorage<Task[]>('flowpilot-tasks', []);
-  const toastTimeout = useRef<NodeJS.Timeout>();
+  const toastTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   // Theme, Export, Filters
   const { isDark, toggleTheme } = useTheme();
