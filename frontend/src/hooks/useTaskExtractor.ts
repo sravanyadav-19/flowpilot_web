@@ -1,10 +1,13 @@
-import { useState, useCallback } from 'react';
-import axios, { AxiosError } from 'axios';
-import { Task, Clarification, ExtractionResponse, AppConfig } from '../types/task';
+import { useState, useCallback, useEffect } from 'react';
+import { AxiosError } from 'axios';
+import {
+  fetchConfig,
+  listTasks,
+  processTasks,
+} from '../api/client';
+import { Task, Clarification, AppConfig } from '../types/task';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://flowpilot-app.onrender.com';
-
-export const useTaskExtractor = () => {
+export const useTaskExtractor = (accessToken?: string) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [clarifications, setClarifications] = useState<Clarification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -17,13 +20,25 @@ export const useTaskExtractor = () => {
 
   const loadConfig = useCallback(async () => {
     try {
-      const res = await axios.get<AppConfig>(`${API_BASE}/api/config`);
-      setConfig(res.data);
-      console.log('[Config]', res.data);
+      const data = await fetchConfig();
+      setConfig(data);
+      console.log('[Config]', data);
     } catch (e) {
       console.warn('[Config] Failed to load:', e);
     }
   }, []);
+
+  const loadRemoteTasks = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const remoteTasks = await listTasks(accessToken);
+      setTasks(remoteTasks);
+    } catch (err) {
+      // Keep localStorage available when the server is offline or the token
+      // has expired; the user can continue working and retry synchronization.
+      console.warn('[Tasks] Remote load failed; keeping local cache:', err);
+    }
+  }, [accessToken]);
 
   const extractTasks = useCallback(async (text: string, isRerun = false): Promise<boolean> => {
     if (!text.trim()) {
@@ -35,16 +50,7 @@ export const useTaskExtractor = () => {
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('text', text);
-
-      const response = await axios.post<ExtractionResponse>(
-        `${API_BASE}/api/process`,
-        formData,
-        { timeout: 30000 }
-      );
-
-      const data = response.data;
+      const data = await processTasks(text, accessToken);
 
       if (isRerun) {
         const clarifiedIds = new Set(clarifications.map(c => c.id));
@@ -78,7 +84,11 @@ export const useTaskExtractor = () => {
     } finally {
       setLoading(false);
     }
-  }, [clarifications]);
+  }, [accessToken, clarifications]);
+
+  useEffect(() => {
+    loadRemoteTasks();
+  }, [loadRemoteTasks]);
 
   const clearAll = useCallback(() => {
     setTasks([]);
@@ -100,5 +110,6 @@ export const useTaskExtractor = () => {
     extractTasks,
     clearAll,
     removeSyncedTasks,
+    loadRemoteTasks,
   };
 };

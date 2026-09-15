@@ -55,7 +55,7 @@ function App() {
   const {
     tasks, clarifications, loading, error, config,
     loadConfig, extractTasks, clearAll, removeSyncedTasks,
-  } = useTaskExtractor();
+  } = useTaskExtractor(accessToken || undefined);
 
   // ======================== COMPUTED TASKS ========================
   const allTasks = tasks.length > 0 ? tasks : savedTasks;
