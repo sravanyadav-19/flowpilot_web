@@ -532,6 +532,19 @@ def get_current_user(
         db.close()
 
 
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    """Return the signed-in user when a token is supplied, otherwise None.
+
+    /api/process remains usable for local/offline extraction, while signed-in
+    clients can opt into persistence without making anonymous requests fail.
+    """
+    if credentials is None:
+        return None
+    return get_current_user(credentials)
+
+
 @app.get("/api/auth/me")
 async def auth_me(user: User = Depends(get_current_user)):
     return {"id": user.id, "email": user.email, "name": user.name, "picture": user.picture}
@@ -649,7 +662,10 @@ async def health_check():
 
 
 @app.post("/api/process", response_model=ExtractionResponse)
-async def process_input(request: Request):
+async def process_input(
+    request: Request,
+    user: User | None = Depends(get_optional_user),
+):
     text = ""
     content_type = request.headers.get("content-type", "")
 
@@ -721,6 +737,27 @@ async def process_input(request: Request):
             is_clarified=is_clarified,
             is_sarcastic=False,
         ))
+
+    if user and final_tasks:
+        db = SessionLocal()
+        try:
+            for extracted in final_tasks:
+                db.add(TaskRecord(
+                    id=extracted.id,
+                    user_id=user.id,
+                    title=extracted.title,
+                    original_text=extracted.original_text,
+                    due_date=extracted.due_date,
+                    assignee=extracted.assignee,
+                    priority=extracted.priority or "medium",
+                    category=extracted.category or "Work",
+                    recurrence=extracted.recurrence or "none",
+                    is_clarified=extracted.is_clarified,
+                    is_sarcastic=extracted.is_sarcastic,
+                ))
+            db.commit()
+        finally:
+            db.close()
 
     return ExtractionResponse(tasks=final_tasks, clarifications=clarifications)
 
