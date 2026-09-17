@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface FilterBarProps {
   searchQuery: string;
@@ -19,6 +19,20 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   categoryFilter, onCategoryChange,
   onClearFilters, totalCount, filteredCount, isDark,
 }) => {
+  // Keep typing responsive: the parent only filters after the user pauses.
+  const [draftSearch, setDraftSearch] = useState(searchQuery);
+
+  useEffect(() => {
+    setDraftSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (draftSearch !== searchQuery) onSearchChange(draftSearch);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [draftSearch, searchQuery, onSearchChange]);
+
   const priorities = [
     { value: 'all', label: 'All', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200' },
     { value: 'high', label: 'High', color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
@@ -46,8 +60,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         }`}></i>
         <input
           type="text"
-          value={searchQuery}
-          onChange={e => onSearchChange(e.target.value)}
+          value={draftSearch}
+          onChange={e => setDraftSearch(e.target.value)}
           placeholder="Search tasks by title..."
           className={`w-full pl-11 pr-4 py-3 rounded-xl text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${
             isDark
@@ -55,9 +69,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'
           } border-2`}
         />
-        {searchQuery && (
+        {draftSearch && (
           <button
-            onClick={() => onSearchChange('')}
+            onClick={() => {
+              setDraftSearch('');
+              onSearchChange('');
+            }}
             className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded-lg ${
               isDark ? 'text-slate-400 hover:bg-slate-600' : 'text-slate-400 hover:bg-slate-200'
             }`}
