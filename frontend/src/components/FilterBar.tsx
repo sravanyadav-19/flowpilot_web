@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CATEGORY_OPTIONS, PRIORITY_OPTIONS } from '../constants/task';
 
 interface FilterBarProps {
   searchQuery: string;
@@ -33,19 +34,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     return () => window.clearTimeout(timer);
   }, [draftSearch, searchQuery, onSearchChange]);
 
-  const priorities = [
-    { value: 'all', label: 'All', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200' },
-    { value: 'high', label: 'High', color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-    { value: 'medium', label: 'Medium', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-    { value: 'low', label: 'Low', color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-  ];
-
-  const categories = [
-    { value: 'all', label: 'All' },
-    { value: 'Work', label: '💼 Work' },
-    { value: 'Personal', label: '🏠 Personal' },
-    { value: 'Meeting', label: '📞 Meeting' },
-  ];
+  const priorities = PRIORITY_OPTIONS;
+  const categories = CATEGORY_OPTIONS;
 
   const hasFilters = searchQuery || priorityFilter !== 'all' || categoryFilter !== 'all';
 

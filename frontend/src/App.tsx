@@ -24,6 +24,7 @@ import { TemplatesPanel } from './components/TemplatesPanel';
 import { StatsDashboard } from './components/StatsDashboard';
 import { CompletedTasksSection } from './components/CompletedTasksSection';
 import { Task, RecurrenceType } from './types/task';
+import { PRIORITY_ORDER } from './constants/task';
 import './index.css';
 
 function App() {
@@ -84,8 +85,7 @@ function App() {
   const sortedTasks = useMemo(() => [...filteredTasks].sort((a, b) => {
     switch (sortBy) {
       case 'priority': {
-        const order = { high: 0, medium: 1, low: 2 };
-        return (order[a.priority] || 1) - (order[b.priority] || 1);
+        return (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1);
       }
       case 'date': {
         const dateA = a.due_date || 'zzzz';
