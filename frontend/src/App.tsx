@@ -3,7 +3,7 @@
 // Day 8: Enhanced with recurring tasks, templates, stats, and completion
 // ============================================================================
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTaskExtractor } from './hooks/useTaskExtractor';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useTheme } from './hooks/useTheme';
@@ -58,12 +58,17 @@ function App() {
   } = useTaskExtractor(accessToken || undefined);
 
   // ======================== COMPUTED TASKS ========================
-  const allTasks = tasks.length > 0 ? tasks : savedTasks;
+  const allTasks = useMemo(
+    () => (tasks.length > 0 ? tasks : savedTasks),
+    [tasks, savedTasks],
+  );
 
   // Day 8: Statistics
   const stats = useTaskStats(allTasks, completedTasks);
 
-  const filteredTasks = allTasks.filter(task => {
+  // These calculations are driven only by task/filter inputs. Memoizing them
+  // avoids repeating string searches and sorting during unrelated UI renders.
+  const filteredTasks = useMemo(() => allTasks.filter(task => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesTitle = task.title.toLowerCase().includes(query);
@@ -74,9 +79,9 @@ function App() {
     if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
     if (categoryFilter !== 'all' && task.category !== categoryFilter) return false;
     return true;
-  });
+  }), [allTasks, searchQuery, priorityFilter, categoryFilter]);
 
-  const sortedTasks = [...filteredTasks].sort((a, b) => {
+  const sortedTasks = useMemo(() => [...filteredTasks].sort((a, b) => {
     switch (sortBy) {
       case 'priority': {
         const order = { high: 0, medium: 1, low: 2 };
@@ -92,7 +97,7 @@ function App() {
       default:
         return 0;
     }
-  });
+  }), [filteredTasks, sortBy]);
 
   const readyTasks = sortedTasks.filter(t => t.is_clarified);
   const reviewTasks = sortedTasks.filter(t => !t.is_clarified);
