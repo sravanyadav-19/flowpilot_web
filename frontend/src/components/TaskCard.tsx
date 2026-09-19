@@ -3,7 +3,7 @@
 // Day 8: Enhanced with complete button, recurrence badge, and recurrence selector
 // ============================================================================
 
-import React, { useState, DragEvent } from 'react';
+import React, { memo, useState, DragEvent } from 'react';
 import { Task, PRIORITY_COLORS, CATEGORY_STYLES, RecurrenceType } from '../types/task';
 import { DatePicker } from './DatePicker';
 import { RecurrenceBadge } from './RecurrenceBadge';
@@ -49,7 +49,7 @@ function formatDate(dateStr?: string | null): string {
   }
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({
+export const TaskCard = memo<TaskCardProps>(({
   task, onDelete, onMove, onEditTitle, onChangePriority, onChangeDate,
   onChangeRecurrence, onComplete, moveLabel, isDark = false,
   onDragStart, onDragEnd, isDragging,
@@ -320,4 +320,4 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       </div>
     </div>
   );
-};
+});
