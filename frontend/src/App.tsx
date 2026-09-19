@@ -3,7 +3,7 @@
 // Day 8: Enhanced with recurring tasks, templates, stats, and completion
 // ============================================================================
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTaskExtractor } from './hooks/useTaskExtractor';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useTheme } from './hooks/useTheme';
@@ -19,9 +19,9 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { FilterBar } from './components/FilterBar';
 import { ExportMenu } from './components/ExportMenu';
 import { DragDropColumn } from './components/DragDropColumn';
-import { ShortcutsModal } from './components/ShortcutsModal';
-import { TemplatesPanel } from './components/TemplatesPanel';
-import { StatsDashboard } from './components/StatsDashboard';
+const ShortcutsModal = lazy(() => import('./components/ShortcutsModal').then(module => ({ default: module.ShortcutsModal })));
+const TemplatesPanel = lazy(() => import('./components/TemplatesPanel').then(module => ({ default: module.TemplatesPanel })));
+const StatsDashboard = lazy(() => import('./components/StatsDashboard').then(module => ({ default: module.StatsDashboard })));
 import { CompletedTasksSection } from './components/CompletedTasksSection';
 import { Task, RecurrenceType } from './types/task';
 import { PRIORITY_ORDER } from './constants/task';
@@ -491,13 +491,17 @@ function App() {
         {/* ===== DAY 8: STATS DASHBOARD ===== */}
         {(allTasks.length > 0 || completedTasks.length > 0) && (
           <div className="mb-6 animate-slide-in">
-            <StatsDashboard stats={stats} isDark={isDark} />
+            <Suspense fallback={<div className="p-6 text-center">Loading statistics…</div>}>
+              <StatsDashboard stats={stats} isDark={isDark} />
+            </Suspense>
           </div>
         )}
 
         {/* ===== DAY 8: TEMPLATES PANEL ===== */}
         <div className="mb-6">
-          <TemplatesPanel onAddTasks={handleAddFromTemplate} isDark={isDark} />
+          <Suspense fallback={<div className="p-6 text-center">Loading templates…</div>}>
+            <TemplatesPanel onAddTasks={handleAddFromTemplate} isDark={isDark} />
+          </Suspense>
         </div>
 
         {/* ===== INPUT PANEL ===== */}
@@ -725,7 +729,9 @@ function App() {
       </div>
 
       {/* ===== SHORTCUTS MODAL ===== */}
-      <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} isDark={isDark} />
+      <Suspense fallback={null}>
+        <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} isDark={isDark} />
+      </Suspense>
 
       {/* ===== UNDO BUTTON (floating) ===== */}
       {canUndo && (
