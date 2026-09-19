@@ -5,6 +5,7 @@
 
 import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTaskExtractor } from './hooks/useTaskExtractor';
+import { useCalendarSync } from './hooks/useCalendarSync';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useTheme } from './hooks/useTheme';
 import { useExport } from './hooks/useExport';
@@ -32,7 +33,6 @@ function App() {
   const [text, setText] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'info' | 'success' | 'error' | 'warning' });
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [clarifyAnswers, setClarifyAnswers] = useState<Record<number, string>>({});
   const [savedTasks, setSavedTasks, clearSaved] = useLocalStorage<Task[]>('flowpilot-tasks', []);
   const toastTimeout = useRef<ReturnType<typeof setTimeout>>();
@@ -66,6 +66,9 @@ function App() {
 
   // Day 8: Statistics
   const stats = useTaskStats(allTasks, completedTasks);
+
+  const { syncing, syncTasks } = useCalendarSync(accessToken, allTasks);
+
 
   // These calculations are driven only by task/filter inputs. Memoizing them
   // avoids repeating string searches and sorting during unrelated UI renders.
@@ -367,42 +370,20 @@ function App() {
     if (!accessToken) { showToast('Sign in with Google first', 'warning'); return; }
     const toSync = allTasks.filter(t => t.is_clarified && t.due_date);
     if (!toSync.length) { showToast('No ready tasks to sync', 'warning'); return; }
-    setSyncing(true);
-    let ok = 0;
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    for (const task of toSync) {
-      const event: any = {
-        summary: task.title,
-        description: `Original: "${task.original_text}"\nPriority: ${task.priority.toUpperCase()}${task.recurrence !== 'none' ? `\nRecurrence: ${task.recurrence}` : ''}\n\nCreated by FlowPilot AI`,
-      };
-      if (task.due_date!.includes('T')) {
-        const start = new Date(task.due_date!);
-        const end = new Date(start.getTime() + 3600000);
-        const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-        event.start = { dateTime: fmt(start), timeZone: tz };
-        event.end = { dateTime: fmt(end), timeZone: tz };
-      } else {
-        const [y, m, d] = task.due_date!.split('-').map(Number);
-        const next = new Date(y, m - 1, d); next.setDate(next.getDate() + 1);
-        event.start = { date: task.due_date };
-        event.end = { date: next.toISOString().split('T')[0] };
-      }
-      try {
-        const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-          method: 'POST',
-          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify(event),
-        });
-        if (res.ok) ok++;
-        else if (res.status === 401) { setAccessToken(null); showToast('Session expired', 'error'); break; }
-      } catch (e) { console.error(e); }
+
+    const result = await syncTasks();
+    if (result.sessionExpired) {
+      setAccessToken(null);
+      showToast('Session expired', 'error');
+      return;
     }
-    setSyncing(false);
-    if (ok) {
-      showToast(`${ok} event(s) synced!`, 'success');
+    if (result.synced) {
+      showToast(`${result.synced} event(s) synced!`, 'success');
       setSavedTasks(prev => prev.filter(t => !t.is_clarified));
       removeSyncedTasks();
-    } else showToast('Sync failed', 'error');
+    } else {
+      showToast('Sync failed', 'error');
+    }
   };
 
   // ======================== EXPORT ========================
