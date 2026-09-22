@@ -18,6 +18,13 @@ except ModuleNotFoundError:  # running from inside backend/
 BACKEND_DIR = Path(__file__).resolve().parent
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+REQUIRE_DATABASE_URL = os.getenv("REQUIRE_DATABASE_URL", "false").lower() == "true"
+
+if REQUIRE_DATABASE_URL and not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is required when REQUIRE_DATABASE_URL=true; "
+        "configure a managed PostgreSQL database before production deployment."
+    )
 
 
 def _normalize_url(url: str) -> str:
